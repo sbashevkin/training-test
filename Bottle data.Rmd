@@ -2,8 +2,9 @@
 title: "Bottle data"
 author: "Sam Bashevkin"
 date: "`r format(Sys.Date(), '%b %d %Y')`"
-output: github_document
+output: html_document
 always_allow_html: true
+keep_md: true
 editor_options: 
   chunk_output_type: console
 ---
