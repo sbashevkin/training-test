@@ -15,3 +15,5 @@ knitr::opts_chunk$set(echo = TRUE)
 - [Analysis](Bottle-data.html)
 - Mapping
 - Discussion
+
+<img src="Megalop.jfif" title="Pitho laevigata Megalopa"/>
