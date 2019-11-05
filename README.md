@@ -11,3 +11,5 @@ NCEAS training test repository
 ## New section
 
 Now I am working from *Rstudio*.
+
+Trying to avoid a merge conflict
