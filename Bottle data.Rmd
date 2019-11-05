@@ -1,0 +1,76 @@
+---
+title: "Bottle data"
+author: "Sam Bashevkin"
+date: "`r format(Sys.Date(), '%b %d %Y')`"
+output: github_document
+always_allow_html: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+require(lubridate)
+require(leaflet)
+require(patchwork)
+```
+
+# Introduction
+
+Load data
+
+```{r message=FALSE, warning=FALSE}
+d<-read_csv("~/NCEAS training/NPEO2010BottleData.csv")
+```
+
+How does salinity vary among stations? Which station is the saltiest and which has the most variable salinity?
+
+# Analysis
+
+Where are these stations?
+
+```{r}
+dstations<-d%>%
+  select(station, lat, lon)%>%
+  distinct()
+
+leaflet(dstations)%>%
+  addTiles()%>%
+  addCircles(lng=~lon, lat = ~lat)
+```
+
+
+Plot salinity vs depth curves for selected stations.
+
+```{r, echo=FALSE}
+
+  p1<-ggplot(d)+
+    geom_point(aes(x=Actual_depth, y=salinity_A, fill=station, shape=station), shape=21)+
+    ylab("Salinity")+
+    xlab("Depth (m)")+
+    theme_bw()+
+    theme(panel.grid=element_blank())
+  
+  p2<-ggplot(d)+
+    geom_point(aes(x=Temp_1, y=salinity_A, fill=station, shape=station), shape=21)+
+    ylab("Salinity")+
+    xlab("Temperature")+
+    theme_bw()+
+    theme(panel.grid=element_blank())
+  
+p1|p2
+```
+
+Summarise salinity for each station
+```{r}
+dsal<-d%>%
+  group_by(station)%>%
+  summarise(Salinity=mean(salinity_A, na.rm=T), Salinity_sd=sd(salinity_A, na.rm=T))
+
+dsal
+```
+
+# Results
+
+Salinity ranges from `r min(d$salinity_A, na.rm=T)` to `r max(d$salinity_A, na.rm=T)`. `r dsal$station[which.max(dsal$Salinity)]` is the saltiest station and `r dsal$station[which.min(dsal$Salinity)]` is the freshest station. `r dsal$station[which.max(dsal$Salinity_sd)]` has the most variable salinity and `r dsal$station[which.min(dsal$Salinity_sd)]` has the least variable salinity. 
