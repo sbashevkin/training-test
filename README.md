@@ -12,4 +12,4 @@ NCEAS training test repository
 
 Now I am working from *Rstudio*.
 
-Trying to avoid a merge conflict
+Trying to avoid a merge conflict but mine is better
