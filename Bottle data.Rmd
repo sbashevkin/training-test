@@ -28,19 +28,6 @@ How does salinity vary among stations? Which station is the saltiest and which h
 
 # Analysis
 
-Where are these stations?
-
-```{r}
-dstations<-d%>%
-  select(station, lat, lon)%>%
-  distinct()
-
-leaflet(dstations)%>%
-  addTiles()%>%
-  addCircles(lng=~lon, lat = ~lat)
-```
-
-
 Plot salinity vs depth curves for selected stations.
 
 ```{r, echo=FALSE}
