@@ -6,6 +6,7 @@ NCEAS training test repository
 * One thing
 * Another thing
 * A third thing
+* A fourth thing from Ginny
 
 ## New section
 
