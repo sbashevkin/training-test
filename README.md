@@ -12,4 +12,4 @@ NCEAS training test repository
 
 Now I am working from *Rstudio*.
 
-Trying to create a merge conflict - sam
+Trying to create a merge conflict - sam but Ginny's is better
