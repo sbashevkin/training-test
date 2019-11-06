@@ -17,3 +17,4 @@ knitr::opts_chunk$set(echo = TRUE)
 - [Analysis](Bottle-data.html)
 - Mapping
 - Discussion
+- References
