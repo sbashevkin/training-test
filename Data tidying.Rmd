@@ -75,7 +75,100 @@ catch_long <- catch_clean %>%
 head(catch_long)
 ```
 
+Practice creating a wide dataframe
+```{r}
+catch_wide <- catch_long%>%
+  pivot_wider(names_from = Year,
+              values_from = Catch)
+
+head(catch_wide)
+```
+
+`rename` Catch column to `catch_thousands`
+
+```{r}
+catch_long <- catch_long %>%
+  rename(Catch_thousands = Catch) %>%
+  mutate(Catch = Catch_thousands * 1000) %>%
+  select(-Catch_thousands)
+```
 
 # Summarize data
 
+```{r}
+mean_region <- catch_long%>%
+  group_by(Region, Species)%>%
+  summarise(Catch_mean=mean(Catch), N=n())
+
+mean_region
+```
+
+Calculate total catch per species
+
+```{r}
+total_species <- catch_long%>%
+  group_by(Species)%>%
+  summarise(Total_catch=sum(Catch))%>%
+  arrange(-Total_catch)
+
+total_species
+```
+
+Total catch before 1900
+
+```{r}
+total_species_pre_1900 <- catch_long%>%
+  filter(Year<1900)%>%
+  group_by(Species)%>%
+  summarise(Total_catch=sum(Catch))%>%
+  arrange(-Total_catch)
+
+total_species_pre_1900
+```
+
 # Join to region table
+
+Load `region_defs` data
+
+```{r}
+region_defs <- read.csv(url("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.303.1",
+                               method = "libcurl"), 
+                           stringsAsFactors = FALSE)%>%
+  select(code, mgmtArea)
+
+head(region_defs)
+```
+
+Join with catch data
+```{r}
+catch_joined <- left_join(catch_long, region_defs, by=c("Region"="code"))
+```
+
+# Separate and unite
+
+```{r}
+site_codes <- data.frame(site=c("HAW-100",
+                                "HAW-101",
+                                "OAH-102",
+                                "OAH-103",
+                                "MAI-100"),
+                         stringsAsFactors = F)
+```
+
+separate island and site number using `separate`
+
+```{r}
+site_codes_split <- site_codes%>%
+  separate(site, into=c("Island", "Site"), sep="-")
+
+site_codes_split
+```
+
+Unite
+```{r}
+site_codes_united <- site_codes_split%>%
+  unite("Full_site", Island, Site, sep="_")
+  
+site_codes_united
+```
+
