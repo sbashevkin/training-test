@@ -1,0 +1,81 @@
+---
+title: "Data tidying"
+author: "Sam Bashevkin"
+date: "11/6/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+library(tidyr)
+```
+
+# Read and clean data
+
+```{r}
+catch_original <- read.csv(url("https://knb.ecoinformatics.org/knb/d1/mn/v2/object/df35b.302.1",
+                               method = "libcurl"), 
+                           stringsAsFactors = FALSE)
+head(catch_original)
+```
+
+Remove `All` column and `notesRegCode` column because we don't need them.
+
+```{r}
+catch_data <- catch_original %>%
+  select(-All, -notesRegCode)
+
+head(catch_data)
+```
+
+```{r}
+summary(catch_data)
+```
+
+## Fix Chinook column
+
+Use `mutate` to fix Chinook column.
+
+```{r}
+catch_clean <- catch_data %>% 
+  mutate(Chinook=ifelse(Chinook=="I", 1, Chinook)) %>%
+  mutate(Chinook = as.numeric(Chinook))
+
+summary(catch_clean)
+```
+
+Finding the rows that got turned into `NA`
+
+```{r}
+i <- which(is.na(catch_clean$Chinook))
+i
+```
+
+What was the original value of that `NA`?
+
+```{r}
+catch_original[i,]
+```
+
+# Reshape data
+
+```{r}
+catch_long <- catch_clean %>% 
+  pivot_longer(cols = -c(Region, Year), 
+               names_to = "Species", 
+               values_to = "Catch")
+
+head(catch_long)
+```
+
+
+# Summarize data
+
+# Join to region table
