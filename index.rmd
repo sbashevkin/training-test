@@ -9,7 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Consider adding the photo earlier:
 <img src="Megalop.jfif" title="Pitho laevigata Megalopa"/>
 
 # Outline of the manuscript work
@@ -18,5 +17,3 @@ Consider adding the photo earlier:
 - [Analysis](Bottle-data.html)
 - Mapping
 - Discussion
-
-<img src="Megalop.jfif" title="Pitho laevigata Megalopa"/>
