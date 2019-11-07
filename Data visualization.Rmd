@@ -19,7 +19,7 @@ library(DT)
 require(lubridate)
 ```
 
-#Prepare data
+# Prepare data
 
 Load data
 ```{r}
@@ -50,7 +50,7 @@ escapement <- esc %>%
 escapement
 ```
 
-#Create static plots
+# Create static plots
 
 ```{r}
 ggplot(escapement, aes(x = Species, y = Escapement))+
@@ -95,7 +95,7 @@ ggplot(escapement, aes(x=Year, y=Escapement, color=Species))+
   my_theme()
 ```
 
-#Create an interactive table
+# Create an interactive table
 
 ```{r}
 locations <- esc%>%
@@ -108,7 +108,7 @@ datatable(locations)
 ```
 
 
-#Create an interactive map
+# Create an interactive map
 
 ```{r}
 leaflet(locations)%>%
