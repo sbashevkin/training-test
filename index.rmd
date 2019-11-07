@@ -15,6 +15,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 - Data cleaning
 - [Analysis](Bottle-data.html)
-- Mapping
+- [Mapping](Data-visualization.html)
 - Discussion
 - References
