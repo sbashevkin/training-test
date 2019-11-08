@@ -1,0 +1,302 @@
+---
+title: "Spatial analysis"
+author: "Sam Bashevkin"
+date: "11/8/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Notes
+
+- Datum = assumed shape of the earth
+
+- Projection = how we map the coordinates to a flat plane for plotting. Shapefiles need a datum but do not need to have a projection. You can change the projection to plot your shapefile most accurately. 
+
+- To crop plotfile, create polygon of location you want and then use `st_intersect`. Also can use `st_crop`.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load packages
+
+```{r packages, warnings = F, message = F}
+library(sf)
+library(tidyverse)
+require(knitr)
+library(scales)
+library(ggmap)
+require(leaflet)
+```
+
+# Prepare regions shapefile
+
+```{r}
+ak_regions <- read_sf("Data/shapefiles/ak_regions_simp.shp")
+
+plot(ak_regions)
+```
+
+read_sf will look for all other files with the same name, but different extension to read in associated files like the .dbf, .prj and .shx files. You just have to pass it the .shp file for it to find and read these in. 
+
+What is the coordinate references system?
+```{r}
+st_crs(ak_regions)
+class(ak_regions)
+```
+
+There is no projection assigned to this data
+
+
+Let's assign a better projection. EPSG 3338 is a better projection for Alaska. 
+
+```{r}
+ak_regions_3338 <- ak_regions %>% 
+  st_transform(crs=3338)
+
+plot(ak_regions_3338)
+
+kable(summary(ak_regions_3338))
+```
+
+Geometry column is sticky and will move with dataframe as you manipulate it. Even if you select 1 column not including geometry, resulting tibble will include geometry. You can manipulate the data without worrying about keeping track of the geometry column.
+
+# Prepare population data
+
+```{r}
+pop <- read_csv("Data/shapefiles/alaska_population.csv")
+
+kable(head(pop))
+```
+
+Convert datafile to sf object
+
+Not sure what coordinate system they used, but you can usually assume WGS84.
+
+```{r}
+pop_4326 <- st_as_sf(pop, 
+                     coords = c("lng", "lat"), #Must be long then lat
+                     crs = 4326,
+                     remove = F) # Not the CRS you want, this is the CRS you have
+
+st_crs(pop_4326)
+
+kable(head(pop_4326))
+```
+
+coordinates were moved to geometry column. You can keep the coordinate columns as-is with the otion `remove = F`, or grab the coordinates back later with `st_coordinates`.
+
+Convert population data to correct CRS.
+
+```{r}
+pop_3338 <- pop_4326 %>%
+  st_transform(crs = 3338)
+```
+
+# Calculate population by region
+
+Join regions to population data
+
+```{r}
+pop_joined <- st_join(pop_3338, ak_regions_3338, join = st_within)
+
+kable(head(pop_joined))
+```
+
+Calculate total pop by region
+
+```{r}
+pop_region <- pop_joined%>%
+  group_by(region)%>%
+  summarise(total_pop = sum(population))
+
+kable(head(pop_region))
+```
+
+Now geometry column contains points of every community within each region
+
+Here's a better way to do it
+
+```{r}
+pop_region <- pop_joined%>%
+  as_tibble()%>% # add this to remove spatial class so that geometry column can be removed. 
+  group_by(region)%>%
+  summarise(total_pop = sum(population))
+
+kable(head(pop_region))
+```
+
+Add total_pops to the region spatial dataframe
+
+```{r}
+pop_region_3338 <- left_join(ak_regions_3338, pop_region, by = "region")
+
+plot(pop_region_3338)
+```
+
+Calculate population by management area
+
+```{r}
+pop_mgmt <- pop_region_3338%>%
+  group_by(mgmt_area)%>%
+  summarise(total_pop=sum(total_pop))
+
+plot(pop_mgmt["total_pop"])
+```
+
+So you can `group_by` and `summarise` a spatial dataframe and it retains the geometry. To keep internal boundaries between these polygons, set `do_union = F` in `summarise` function.
+
+# Make maps!
+
+Load rivers shapefile
+
+```{r}
+rivers_3338<-read_sf("Data/shapefiles/ak_rivers_simp.shp")
+st_crs(rivers_3338)
+```
+
+No EPSG code, but CRS defined in the proj4string in "+proj=aea." CRS is 3338
+
+```{r, out.width="100%"}
+ggplot() +
+  geom_sf(data=pop_region_3338, aes(fill = total_pop))+
+  geom_sf(data=pop_3338, size=0.5)+
+  geom_sf(data=rivers_3338, aes(size=StrOrder), color="black")+
+  scale_size(range=c(0.01, 0.2), guide=F)+
+  scale_fill_continuous(low="khaki", high="firebrick", name="Total population", labels=comma)+
+  theme_bw()
+```
+
+## Incorporate base maps using ggmap
+
+First need to change projection to make population data compatible with tile data for base maps.
+
+```{r}
+pop_3857 <- pop_3338 %>%
+  st_transform(crs=3857)
+```
+
+Define a function to fix the bounding box to be in EPSG:3857
+
+```{r}
+# See https://github.com/dkahle/ggmap/issues/160#issuecomment-397055208
+ggmap_bbox_to_3857 <- function(map) {
+  if (!inherits(map, "ggmap")) stop("map must be a ggmap object")
+  # Extract the bounding box (in lat/lon) from the ggmap to a numeric vector, 
+  # and set the names to what sf::st_bbox expects:
+  map_bbox <- setNames(unlist(attr(map, "bb")), 
+                       c("ymin", "xmin", "ymax", "xmax"))
+  
+  # Coonvert the bbox to an sf polygon, transform it to 3857, 
+  # and convert back to a bbox (convoluted, but it works)
+  bbox_3857 <- st_bbox(st_transform(st_as_sfc(st_bbox(map_bbox, crs = 4326)), 3857))
+  
+  # Overwrite the bbox of the ggmap object with the transformed coordinates 
+  attr(map, "bb")$ll.lat <- bbox_3857["ymin"]
+  attr(map, "bb")$ll.lon <- bbox_3857["xmin"]
+  attr(map, "bb")$ur.lat <- bbox_3857["ymax"]
+  attr(map, "bb")$ur.lon <- bbox_3857["xmax"]
+  map
+}
+```
+
+Create a bounding box
+
+```{r, message=F, warning=F}
+bbox <- c(-170, 52, -130, 64)
+
+ak_map <- get_stamenmap(bbox, zoom=4)
+ak_map_3857 <- ggmap_bbox_to_3857(ak_map)
+```
+
+Make plot with basemap
+
+```{r}
+ggmap(ak_map_3857) +
+  geom_sf(data = pop_3857, aes(color=population), inherit.aes = F)+
+  scale_color_continuous(low = "khaki", high = "firebrick", labels = comma)
+```
+
+## Plot with leaflet
+
+Must give leaflet a CRS
+
+```{r}
+epsg3338 <- leafletCRS(
+  crsClass = "L.Proj.CRS",
+  code = "EPSG:3338",
+  proj4def =  "+proj=aea +lat_1=55 +lat_2=65 +lat_0=50 +lon_0=-154 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+  resolutions = 2^(16:7)
+)
+```
+
+
+And must give leaflet your data in EPSG 4326
+
+Transform data to 4326
+```{r}
+pop_region_4326 <- pop_region_3338%>%
+  st_transform(crs=4326)
+```
+
+Plot
+
+```{r}
+leaflet(options=leafletOptions(crs = epsg3338))%>%
+  addPolygons(data=pop_region_4326, 
+              fillColor = "gray",
+              weight=1,
+              )
+```
+
+Add population to plot
+
+```{r}
+pal <- colorNumeric(palette = "Reds", domain = pop_region_4326$total_pop)
+
+m <- leaflet(options = leafletOptions(crs = epsg3338)) %>%
+        addPolygons(data = pop_region_4326, 
+                    fillColor = ~pal(total_pop),
+                    weight = 1,
+                    color = "black",
+                    fillOpacity = 1,
+                    label = ~region) %>% 
+        addLegend(position = "bottomleft",
+                  pal = pal,
+                  values = range(pop_region_4326$total_pop),
+                  title = "Total Population")
+
+m
+```
+
+Make plot more complex and add individual communities with their populations.
+
+```{r}
+pal <- colorNumeric(palette = "Reds", domain = pop_region_4326$total_pop)
+
+m <- leaflet(options = leafletOptions(crs = epsg3338)) %>%
+        addPolygons(data = pop_region_4326, 
+                    fillColor = ~pal(total_pop),
+                    weight = 1,
+                    color = "black",
+                    fillOpacity = 1,
+                    label = ~region) %>% 
+        addCircleMarkers(data = pop_4326,
+                         lat = ~lat,
+                         lng = ~lng,
+                         radius = ~log(population/500), # arbitrary scaling
+                         fillColor = "gray",
+                         fillOpacity = 1,
+                         weight = 0.25,
+                         color = "black",
+                         label = ~paste0(pop_4326$city, ", population ", comma(pop_4326$population))) %>%
+        addLegend(position = "bottomleft",
+                  pal = pal,
+                  values = range(pop_region_4326$total_pop),
+                  title = "Total Population")
+
+m
+```
+
+With built in projections, leaflet can no longer properly grab tiles from tile servers. 
